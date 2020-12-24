@@ -1,0 +1,76 @@
+version: '3.3'
+services:
+    nginx:
+        image: nginx:1.19.6-alpine
+        container_name: nginx
+        restart: always
+        ports:
+            - "80:80"
+            - "443:443"
+        volumes:
+            - ./Nginx/core:/etc/nginx/conf.d
+            - certbot-etc:q:/ssl
+            - ./Nginx/nginx.conf:/etc/nginx/nginx.conf
+        links:
+            - php
+        networks:
+            - front
+            - back
+    mysql:
+        image: mysql:8.0.22
+        ports:
+          - "127.0.0.1:3306:3306"
+        container_name: mysql
+        restart: always
+        environment:
+            - MYSQL_ROOT_PASSWORD=123456
+            - MYSQL_DATABASE=db-data
+            - MYSQL_USER=root
+            - MYSQL_PASSWORD=random
+        volumes:
+            - ./MySQL:/var/lib/mysql
+        networks:
+            - back
+    php:
+        image: php:8.0
+        restart: always
+        container_name: php-fpm
+        links:
+            - mysql
+        ports:
+            - "127.0.0.1:9000:9000"
+        networks:
+            - back
+    phpmyadmin:
+        image: phpmyadmin/phpmyadmin
+        restart: always
+        container_name: phpmyadmin
+        ports:
+            - 8090:80
+        links:
+            - mysql:db
+        networks:
+            - back
+    certbot:
+      image: certbot/certbot
+      container_name: certbot
+      volumes:
+            - certbot-etc:/etc/letsencrypt
+            - certbot-var:/var/lib/letsencrypt
+            - web-root:/var/www/html
+    depends_on:
+      - nginx
+    command: certonly --webroot --webroot-path=/var/www/html --email sammy@example.com --agree-tos --no-eff-email --staging -d first.domain.com -d second.domain.com
+
+volumes:
+  certbot-etc:
+  certbot-var:
+networks:
+    front:
+        driver: bridge
+        driver_opts:
+            com.docker.network.enable_ipv6: "false"
+        ipam:
+            driver: default
+    back:
+        driver: bridge
